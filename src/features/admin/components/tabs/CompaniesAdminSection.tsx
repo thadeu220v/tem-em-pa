@@ -1,0 +1,31 @@
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AllCompaniesTab } from "./AllCompaniesTab";
+import { PendingCompaniesTab } from "./PendingCompaniesTab";
+import { FlaggedCompaniesTab } from "./FlaggedCompaniesTab";
+import { DuplicatesTab } from "./DuplicatesTab";
+import { ImportPublicTab } from "./ImportPublicTab";
+import { CompanyModerationCard } from "./CompanyModerationCard";
+
+export function CompaniesAdminSection() {
+  return (
+    <>
+    <CompanyModerationCard />
+    <Tabs defaultValue="todas" className="mt-2">
+      <TabsList className="flex w-full flex-wrap">
+
+        <TabsTrigger value="todas">Todas as empresas</TabsTrigger>
+        <TabsTrigger value="pendentes">Pendentes de aprovação</TabsTrigger>
+        <TabsTrigger value="sinalizadas">Reivindicações & denúncias</TabsTrigger>
+        <TabsTrigger value="duplicadas">Duplicadas</TabsTrigger>
+        <TabsTrigger value="importar">Importar CSV</TabsTrigger>
+      </TabsList>
+      <TabsContent value="todas"><AllCompaniesTab /></TabsContent>
+      <TabsContent value="pendentes"><PendingCompaniesTab /></TabsContent>
+      <TabsContent value="sinalizadas"><FlaggedCompaniesTab /></TabsContent>
+      <TabsContent value="duplicadas"><DuplicatesTab /></TabsContent>
+      <TabsContent value="importar"><ImportPublicTab /></TabsContent>
+    </Tabs>
+    </>
+  );
+
+}

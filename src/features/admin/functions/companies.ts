@@ -1,0 +1,287 @@
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { adminKeys } from "./keys";
+import { useAdminMutation } from "./_mutation";
+
+export type AdminCompany = {
+  id: string;
+  name: string;
+  description: string | null;
+  city: string | null;
+  city_id: string | null;
+  city_slug: string | null;
+  slug: string | null;
+  status: string;
+  created_at: string;
+  seo_title: string | null;
+  seo_description: string | null;
+  og_image_url: string | null;
+  canonical_url: string | null;
+  noindex: boolean | null;
+};
+
+export type PendingCompany = AdminCompany;
+
+export type FlaggedCompany = AdminCompany & {
+  pending_claims: number;
+  pending_reports: number;
+};
+
+type RawAdminRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  status: string;
+  created_at: string;
+  city_id: string | null;
+  slug: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
+  og_image_url: string | null;
+  canonical_url: string | null;
+  noindex: boolean | null;
+  cities: { name: string | null; slug: string | null } | null;
+};
+
+function toAdmin(rows: RawAdminRow[]): AdminCompany[] {
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    description: r.description,
+    city: r.cities?.name ?? null,
+    city_id: r.city_id,
+    city_slug: r.cities?.slug ?? null,
+    slug: r.slug ?? null,
+    status: r.status,
+    created_at: r.created_at,
+    seo_title: r.seo_title,
+    seo_description: r.seo_description,
+    og_image_url: r.og_image_url,
+    canonical_url: r.canonical_url,
+    noindex: r.noindex,
+  }));
+}
+
+const ADMIN_SELECT =
+  "id, name, description, status, created_at, city_id, slug, seo_title, seo_description, og_image_url, canonical_url, noindex, cities:city_id(name, slug)" as const;
+
+export function usePendingCompanies() {
+  return useQuery({
+    queryKey: adminKeys.pendingCompanies(),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("companies")
+        .select(ADMIN_SELECT)
+        .in("status", ["pending", "claimed_pending"])
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return toAdmin((data ?? []) as unknown as RawAdminRow[]) as PendingCompany[];
+    },
+  });
+}
+
+export type CompanyPageFilters = {
+  status: string;
+  cityId: string;
+  q: string;
+};
+
+export function useCompaniesPage(
+  filters: CompanyPageFilters,
+  page: number,
+  pageSize: number,
+) {
+  return useQuery({
+    queryKey: [
+      ...adminKeys.all,
+      "companies-page",
+      filters.status,
+      filters.cityId,
+      filters.q,
+      page,
+      pageSize,
+    ] as const,
+    queryFn: async (): Promise<{ rows: AdminCompany[]; total: number; totalExact: boolean }> => {
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
+      const hasStatus = filters.status && filters.status !== "all";
+      const hasCity = filters.cityId && filters.cityId !== "all";
+      const term = filters.q.trim();
+      const hasSearch = term.length > 0;
+      const hasAnyFilter = hasStatus || hasCity || hasSearch;
+
+      // No filter: read exact total from admin_stats_cache (kept in sync by triggers,
+      // instant even at 200k rows). Filtered: exact count would time out — use estimate.
+      let cachedTotal: number | null = null;
+      if (!hasAnyFilter) {
+        const { data: cache } = await supabase
+          .from("admin_stats_cache")
+          .select("value")
+          .eq("key", "companies_total")
+          .maybeSingle();
+        cachedTotal = cache ? Number(cache.value) : null;
+      } else if (hasStatus && !hasCity && !hasSearch) {
+        // Status-only filter also served from cache.
+        const cacheKey =
+          filters.status === "approved" ? "companies_approved"
+          : filters.status === "pending" ? "companies_pending"
+          : filters.status === "rejected" ? "companies_rejected"
+          : null;
+        if (cacheKey) {
+          const { data: cache } = await supabase
+            .from("admin_stats_cache")
+            .select("value")
+            .eq("key", cacheKey)
+            .maybeSingle();
+          cachedTotal = cache ? Number(cache.value) : null;
+        }
+      }
+
+      const useCountHead = cachedTotal === null;
+      let q = supabase
+        .from("companies")
+        .select(ADMIN_SELECT, useCountHead ? { count: "estimated" } : undefined)
+        .order("created_at", { ascending: false })
+        .range(from, to);
+      if (hasStatus) {
+        if (filters.status === "pending") {
+          q = q.in("status", ["pending", "claimed_pending"]);
+        } else {
+          q = q.eq("status", filters.status as "approved" | "rejected");
+        }
+      }
+      if (hasCity) {
+        q = q.eq("city_id", filters.cityId);
+      }
+      if (hasSearch) q = q.ilike("name", `%${term}%`);
+      const { data, error, count } = await q;
+      if (error) throw error;
+      return {
+        rows: toAdmin((data ?? []) as unknown as RawAdminRow[]),
+        total: cachedTotal ?? count ?? 0,
+        totalExact: cachedTotal !== null,
+      };
+    },
+    placeholderData: (prev) => prev,
+  });
+}
+
+
+export function useFlaggedCompanies() {
+  return useQuery({
+    queryKey: [...adminKeys.all, "flagged-companies"] as const,
+    queryFn: async (): Promise<FlaggedCompany[]> => {
+      const { data: claims, error: cErr } = await supabase
+        .from("company_claims")
+        .select("company_id")
+        .eq("status", "pending");
+      if (cErr) throw cErr;
+
+      const { data: reports, error: rErr } = await supabase
+        .from("review_reports")
+        .select("review_id, reviews:review_id(company_id)")
+        .eq("status", "pending");
+      if (rErr) throw rErr;
+
+      const claimsByCompany = new Map<string, number>();
+      (claims ?? []).forEach((c) => {
+        claimsByCompany.set(c.company_id, (claimsByCompany.get(c.company_id) ?? 0) + 1);
+      });
+      const reportsByCompany = new Map<string, number>();
+      (reports ?? []).forEach((r: { reviews: { company_id: string } | null }) => {
+        const cid = r.reviews?.company_id;
+        if (cid) reportsByCompany.set(cid, (reportsByCompany.get(cid) ?? 0) + 1);
+      });
+
+      const ids = Array.from(new Set([...claimsByCompany.keys(), ...reportsByCompany.keys()]));
+      if (ids.length === 0) return [];
+
+      const { data: companies, error: coErr } = await supabase
+        .from("companies")
+        .select(ADMIN_SELECT)
+        .in("id", ids);
+      if (coErr) throw coErr;
+
+      const admins = toAdmin((companies ?? []) as unknown as RawAdminRow[]);
+      return admins.map((c) => ({
+        ...c,
+        pending_claims: claimsByCompany.get(c.id) ?? 0,
+        pending_reports: reportsByCompany.get(c.id) ?? 0,
+      }));
+    },
+  });
+}
+
+type Decision = "approved" | "rejected";
+
+export function useDecideCompany() {
+  return useAdminMutation<{ id: string; name: string; status: Decision }>({
+    mutationFn: async ({ id, status }) => {
+      const { error } = await supabase.from("companies").update({ status }).eq("id", id);
+      if (error) throw error;
+    },
+    audit: ({ id, name, status }) => ({
+      action: status === "approved" ? "company.approve" : "company.reject",
+      entityType: "company",
+      entityId: id,
+      details: { name },
+    }),
+    successMessage: ({ status }) =>
+      status === "approved" ? "Empresa aprovada" : "Empresa rejeitada",
+  });
+}
+
+export function useSuspendCompany() {
+  return useAdminMutation<{ id: string; name: string }>({
+    mutationFn: async ({ id }) => {
+      const { error } = await supabase
+        .from("companies")
+        .update({ status: "rejected" })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    audit: ({ id, name }) => ({
+      action: "company.suspend",
+      entityType: "company",
+      entityId: id,
+      details: { name },
+    }),
+    successMessage: "Empresa suspensa",
+  });
+}
+
+export function useRepublishCompany() {
+  return useAdminMutation<{ id: string; name: string }>({
+    mutationFn: async ({ id }) => {
+      const { error } = await supabase
+        .from("companies")
+        .update({ status: "approved" })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    audit: ({ id, name }) => ({
+      action: "company.republish",
+      entityType: "company",
+      entityId: id,
+      details: { name },
+    }),
+    successMessage: "Empresa republicada",
+  });
+}
+
+export function useDeleteCompany() {
+  return useAdminMutation<{ id: string; name: string }>({
+    mutationFn: async ({ id }) => {
+      const { error } = await supabase.from("companies").delete().eq("id", id);
+      if (error) throw error;
+    },
+    audit: ({ id, name }) => ({
+      action: "company.delete",
+      entityType: "company",
+      entityId: id,
+      details: { name },
+    }),
+    successMessage: "Empresa removida",
+  });
+}

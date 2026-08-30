@@ -1,0 +1,257 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Tem na minha cidade — Design System
+ * Paleta: amarelo mostarda (#F2B705) + tinta preta (#1A1A1A),
+ * creme (#FDF7E4) e âmbar queimado (#8C3B00) como apoio.
+ * Vibe: pôster brasileiro, alto contraste, tipografia forte.
+ */
+
+@theme inline {
+  --font-display: "Sora", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-glow: var(--primary-glow);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  --radius: 0.875rem;
+
+  /* Bases: creme suave + tinta */
+  --background: oklch(0.985 0.012 90);
+  --foreground: oklch(0.18 0.01 60);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.01 60);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.01 60);
+
+  /* Amarelo mostarda — primário. Fundo claro exige texto escuro. */
+  --primary: oklch(0.82 0.16 85);
+  --primary-foreground: oklch(0.18 0.01 60);
+  --primary-glow: oklch(0.88 0.14 88);
+
+  /* Tinta — secundário para CTAs escuros e headers */
+  --secondary: oklch(0.2 0.01 60);
+  --secondary-foreground: oklch(0.985 0.012 90);
+
+  --muted: oklch(0.95 0.015 88);
+  --muted-foreground: oklch(0.45 0.02 65);
+  --accent: oklch(0.94 0.05 85);
+  --accent-foreground: oklch(0.32 0.13 45);
+
+  --destructive: oklch(0.55 0.2 30);
+  --destructive-foreground: oklch(0.99 0 0);
+
+  --border: oklch(0.9 0.015 85);
+  --input: oklch(0.92 0.015 85);
+  --ring: oklch(0.82 0.16 85);
+
+  --chart-1: oklch(0.82 0.16 85);
+  --chart-2: oklch(0.42 0.13 45);
+  --chart-3: oklch(0.6 0.18 60);
+  --chart-4: oklch(0.55 0.15 145);
+  --chart-5: oklch(0.5 0.17 260);
+
+  --sidebar: oklch(0.985 0.012 90);
+  --sidebar-foreground: oklch(0.18 0.01 60);
+  --sidebar-primary: oklch(0.82 0.16 85);
+  --sidebar-primary-foreground: oklch(0.18 0.01 60);
+  --sidebar-accent: oklch(0.95 0.015 88);
+  --sidebar-accent-foreground: oklch(0.18 0.01 60);
+  --sidebar-border: oklch(0.9 0.015 85);
+  --sidebar-ring: oklch(0.82 0.16 85);
+
+  --gradient-hero: linear-gradient(135deg, oklch(0.82 0.16 85) 0%, oklch(0.42 0.13 45) 100%);
+  --shadow-elegant: 0 10px 40px -15px color-mix(in oklab, oklch(0.42 0.13 45) 30%, transparent);
+  --shadow-soft: 0 2px 12px -4px color-mix(in oklab, oklch(0.18 0.01 60) 15%, transparent);
+}
+
+.dark {
+  --background: oklch(0.16 0.01 60);
+  --foreground: oklch(0.97 0.012 88);
+  --card: oklch(0.2 0.01 60);
+  --card-foreground: oklch(0.97 0.012 88);
+  --popover: oklch(0.2 0.01 60);
+  --popover-foreground: oklch(0.97 0.012 88);
+  --primary: oklch(0.85 0.17 85);
+  --primary-foreground: oklch(0.16 0.01 60);
+  --primary-glow: oklch(0.9 0.15 88);
+  --secondary: oklch(0.28 0.02 60);
+  --secondary-foreground: oklch(0.97 0.012 88);
+  --muted: oklch(0.24 0.01 60);
+  --muted-foreground: oklch(0.72 0.02 65);
+  --accent: oklch(0.3 0.09 60);
+  --accent-foreground: oklch(0.97 0.012 88);
+  --destructive: oklch(0.62 0.22 30);
+  --destructive-foreground: oklch(0.97 0.012 88);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.85 0.17 85);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html {
+    font-family: var(--font-sans);
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, h4, h5 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+}
+
+@utility bg-hero-gradient {
+  background-image: var(--gradient-hero);
+}
+@utility shadow-elegant {
+  box-shadow: var(--shadow-elegant);
+}
+@utility shadow-soft {
+  box-shadow: var(--shadow-soft);
+}
+
+/* ============================================================
+ * Accessibility utilities (controlled by <html> classes via
+ * AccessibilityBar). All values are derived from semantic
+ * tokens so they work in light and dark themes.
+ * ============================================================ */
+
+:root {
+  --a11y-font-scale: 1;
+}
+
+html {
+  font-size: calc(16px * var(--a11y-font-scale, 1));
+}
+
+html.a11y-high-contrast {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.1 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.1 0 0);
+  --muted: oklch(0.95 0 0);
+  --muted-foreground: oklch(0.15 0 0);
+  --border: oklch(0.1 0 0);
+  --input: oklch(0.1 0 0);
+  --primary: oklch(0.75 0.18 85);
+  --primary-foreground: oklch(0.1 0 0);
+  --ring: oklch(0.1 0 0);
+}
+
+html.a11y-high-contrast.dark {
+  --background: oklch(0.08 0 0);
+  --foreground: oklch(1 0 0);
+  --card: oklch(0.08 0 0);
+  --card-foreground: oklch(1 0 0);
+  --muted: oklch(0.15 0 0);
+  --muted-foreground: oklch(0.95 0 0);
+  --border: oklch(1 0 0);
+  --input: oklch(1 0 0);
+  --primary: oklch(0.9 0.18 88);
+  --primary-foreground: oklch(0.08 0 0);
+  --ring: oklch(1 0 0);
+}
+
+html.a11y-grayscale body {
+  filter: grayscale(1);
+}
+
+html.a11y-underline-links a {
+  text-decoration: underline !important;
+  text-underline-offset: 3px;
+}
+
+html.a11y-big-cursor,
+html.a11y-big-cursor * {
+  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'><path d='M4 2 L4 32 L12 24 L17 36 L22 34 L17 22 L28 22 Z' fill='black' stroke='white' stroke-width='2'/></svg>") 2 2, auto !important;
+}
+
+html.a11y-readable-font,
+html.a11y-readable-font body,
+html.a11y-readable-font h1,
+html.a11y-readable-font h2,
+html.a11y-readable-font h3,
+html.a11y-readable-font h4,
+html.a11y-readable-font h5,
+html.a11y-readable-font h6,
+html.a11y-readable-font p,
+html.a11y-readable-font a,
+html.a11y-readable-font span,
+html.a11y-readable-font li,
+html.a11y-readable-font button,
+html.a11y-readable-font input,
+html.a11y-readable-font textarea {
+  font-family: Verdana, Geneva, Tahoma, sans-serif !important;
+  letter-spacing: 0.01em;
+}
+
+/* Always-visible focus ring for keyboard navigation (WCAG 2.4.7). */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* VLibras widget z-index should sit above the accessibility bar. */
+[vw] { z-index: 70 !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

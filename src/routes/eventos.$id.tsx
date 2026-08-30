@@ -1,0 +1,261 @@
+import { createFileRoute, Link, notFound } from '@tanstack/react-router'
+import { Calendar, MapPin, ArrowLeft } from 'lucide-react'
+import { PageShell } from '@/components/PageShell'
+import { supabase } from '@/integrations/supabase/client'
+import { EventCalendarButtons } from '@/features/events/components/EventCalendarButtons'
+import { ShareButton } from '@/components/ShareButton'
+import { seoGlobalsServerQO } from '@/features/seo/functions/getGlobals'
+import { resolveSeo, buildSeoHead } from '@/lib/seo/render'
+
+type LoadedEvent = {
+  id: string
+  title: string
+  description: string | null
+  starts_at: string
+  ends_at: string | null
+  location: string | null
+  image_url: string | null
+  company: { id: string; name: string; logo_url: string | null } | null
+}
+
+async function loadEvent(id: string): Promise<LoadedEvent & { seo_title: string | null; seo_description: string | null; og_image_url: string | null; canonical_url: string | null; noindex: boolean | null }> {
+  const { data, error } = await supabase
+    .from('city_events')
+    .select(
+      'id, title, description, starts_at, ends_at, location, image_url, is_active, seo_title, seo_description, og_image_url, canonical_url, noindex, companies:company_id(id, name, logo_url, status, cities:city_id(name, state))',
+    )
+    .eq('id', id)
+    .maybeSingle()
+  if (error) throw error
+  const row = data as
+    | {
+        id: string
+        title: string
+        description: string | null
+        starts_at: string
+        ends_at: string | null
+        location: string | null
+        image_url: string | null
+        is_active: boolean
+        seo_title: string | null
+        seo_description: string | null
+        og_image_url: string | null
+        canonical_url: string | null
+        noindex: boolean | null
+        companies: { id: string; name: string; logo_url: string | null; status: string; cities: { name: string | null; state: string | null } | null } | null
+      }
+    | null
+  if (!row || !row.is_active || row.companies?.status !== 'approved') {
+    throw notFound()
+  }
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    starts_at: row.starts_at,
+    ends_at: row.ends_at,
+    location: row.location,
+    image_url: row.image_url,
+    seo_title: row.seo_title,
+    seo_description: row.seo_description,
+    og_image_url: row.og_image_url,
+    canonical_url: row.canonical_url,
+    noindex: row.noindex,
+    company: row.companies
+      ? { id: row.companies.id, name: row.companies.name, logo_url: row.companies.logo_url, cityName: row.companies.cities?.name ?? null, state: row.companies.cities?.state ?? null } as never
+      : null,
+  }
+}
+
+export const Route = createFileRoute('/eventos/$id')({
+  loader: async ({ params, context }) => {
+    const [event, globals] = await Promise.all([
+      loadEvent(params.id),
+      context.queryClient.ensureQueryData(seoGlobalsServerQO),
+    ])
+    return { event, globals }
+  },
+  head: ({ params, loaderData }) => {
+    const base = 'https://www.temnaminhacidade.com.br'
+    const url = `${base}/eventos/${params.id}`
+    const ev = loaderData?.event
+    const company = ev?.company as unknown as { name: string; cityName?: string | null; state?: string | null } | null | undefined
+    const cityName = company?.cityName ?? ''
+    const state = company?.state ?? ''
+    const when = ev
+      ? new Date(ev.starts_at).toLocaleString('pt-BR', {
+          day: '2-digit',
+          month: 'long',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : ''
+    const fallbackTitle = ev?.title
+      ? `${ev.title} — Eventos — Tem na minha cidade`
+      : 'Evento — Tem na minha cidade'
+    const fallbackDesc = ev
+      ? [when, ev.location, company?.name].filter(Boolean).join(' · ').slice(0, 160)
+      : 'Agenda de eventos das cidades atendidas.'
+    const ogImage = ev?.og_image_url ?? ev?.image_url ?? `${base}/api/public/og/event/${params.id}`
+    const seo = resolveSeo({
+      url,
+      fallbackTitle,
+      fallbackDescription: fallbackDesc,
+      override: {
+        seo_title: ev?.seo_title ?? null,
+        seo_description: ev?.seo_description ?? null,
+        og_image_url: ogImage,
+        canonical_url: ev?.canonical_url ?? null,
+        noindex: ev?.noindex ?? null,
+      },
+      templateKind: 'event',
+      templateVars: {
+        nome: ev?.title ?? '',
+        cidade: cityName,
+        estado: state,
+        data: when,
+      },
+      globals: loaderData?.globals ?? null,
+    })
+    const head = buildSeoHead({ seo, ogType: 'article' })
+    return {
+      meta: head.meta,
+      links: head.links,
+      scripts: ev
+        ? [
+            {
+              type: 'application/ld+json',
+              children: JSON.stringify({
+                '@context': 'https://schema.org',
+                '@type': 'Event',
+                name: ev.title,
+                startDate: ev.starts_at,
+                endDate: ev.ends_at ?? undefined,
+                eventStatus: 'https://schema.org/EventScheduled',
+                eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+                location: ev.location
+                  ? { '@type': 'Place', name: ev.location }
+                  : undefined,
+                image: ogImage,
+                organizer: company
+                  ? { '@type': 'Organization', name: company.name }
+                  : undefined,
+              }),
+            },
+          ]
+        : [],
+    }
+  },
+  component: EventDetailPage,
+  errorComponent: ({ error }) => (
+    <PageShell>
+      <div role="alert" className="mx-auto max-w-lg px-4 py-16 text-center">
+        <h1 className="font-display text-2xl font-bold">Não foi possível carregar o evento</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{error.message}</p>
+      </div>
+    </PageShell>
+  ),
+  notFoundComponent: () => (
+    <PageShell>
+      <div className="mx-auto max-w-lg px-4 py-16 text-center">
+        <h1 className="font-display text-2xl font-bold">Evento não encontrado</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          O evento pode ter sido removido ou não está mais ativo.
+        </p>
+        <Link
+          to="/"
+          className="mt-4 inline-flex items-center gap-1 text-sm text-primary hover:underline"
+        >
+          <ArrowLeft className="h-3 w-3" /> Voltar para a página inicial
+        </Link>
+
+      </div>
+    </PageShell>
+  ),
+})
+
+function EventDetailPage() {
+  const { event: ev } = Route.useLoaderData()
+  const when = new Date(ev.starts_at).toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  return (
+    <PageShell>
+      <article
+        aria-labelledby="event-title"
+        className="mx-auto max-w-3xl px-4 py-8"
+      >
+        <Link
+          to="/"
+          className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-3 w-3" aria-hidden="true" /> Voltar para a página inicial
+        </Link>
+
+
+        {ev.image_url ? (
+          <img
+            src={ev.image_url}
+            alt={ev.title}
+            className="aspect-[16/9] w-full rounded-2xl object-cover"
+          />
+        ) : (
+          <div className="aspect-[16/9] w-full rounded-2xl bg-hero-gradient opacity-80" aria-hidden="true" />
+        )}
+
+        <header className="mt-6">
+          {ev.company ? (
+            <Link
+              to="/empresa/$id"
+              params={{ id: ev.company.id }}
+              className="text-xs font-medium uppercase tracking-wide text-primary hover:underline"
+            >
+              {ev.company.name}
+            </Link>
+          ) : null}
+          <h1 id="event-title" className="mt-1 font-display text-3xl font-bold md:text-4xl">
+            {ev.title}
+          </h1>
+          <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+            <span className="inline-flex items-center gap-1">
+              <Calendar className="h-4 w-4" aria-hidden="true" /> {when}
+            </span>
+            {ev.location ? (
+              <span className="inline-flex items-center gap-1">
+                <MapPin className="h-4 w-4" aria-hidden="true" /> {ev.location}
+              </span>
+            ) : null}
+          </div>
+        </header>
+
+        {ev.description ? (
+          <section aria-label="Descrição" className="mt-6 whitespace-pre-wrap text-base leading-relaxed">
+            {ev.description}
+          </section>
+        ) : null}
+
+        <div className="mt-6 flex flex-wrap gap-2">
+          <EventCalendarButtons
+            event={{
+              uid: ev.id,
+              title: ev.title,
+              description: ev.description,
+              location: ev.location,
+              startsAt: ev.starts_at,
+              endsAt: ev.ends_at,
+            }}
+          />
+          <ShareButton
+            title={ev.title}
+            text={`Confira: ${ev.title}`}
+            url={`https://www.temnaminhacidade.com.br/eventos/${ev.id}`}
+          />
+        </div>
+      </article>
+    </PageShell>
+  )
+}
